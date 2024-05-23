@@ -178,7 +178,7 @@ Within a Kubernetes cluster, every pod can reach every every other pod. This is 
 
 - --dry-run: By default, as soon as the command is run, the resource will be created. If you simply want to test your command, use the --dry-run=client option. This will not create the resource. Instead, tell you whether the resource can be created and if your command is right.
 
-  - -o yaml: This will output the resource definition in YAML format on the screen.
+- -o yaml: This will output the resource definition in YAML format on the screen.
 
       Syntax:
 
@@ -203,3 +203,117 @@ Within a Kubernetes cluster, every pod can reach every every other pod. This is 
   ```
   kubectl edit deployment my-deployment
   ```
+
+### 5) CONFIGMAP
+
+- #### To create a configmap imperatively
+    ```
+    kubectl create configmap <config-name> --from-literal=<key>=<value>
+    ```
+    ```
+    kubectl create configmap <config-name> --from-file=<path-to-file>
+    ```
+  
+- #### To create a configmap declarative
+    ```
+    kubectl create –f config-map.yaml
+    ```
+  
+- #### To view all configmaps
+    ```
+    kubectl get configmaps
+    ```
+  
+- #### To see data under configmaps
+    ```
+    kubectl describe configmaps
+    ```
+
+### 6) SECRETS
+
+- #### To create a secret imperatively
+    ```
+    kubectl create secret generic <secret-name> --from-literal=<key>=<value>
+    ```
+    ```
+    kubectl create secret generic <secret-name> --from-file=<path-to-file>
+    ```
+
+- #### To create a secret declarative
+    ```
+    kubectl create –f secret-data.yaml
+    ```
+  
+- #### To view all secret
+    ```
+    kubectl get secrets
+    ```
+
+- #### To see attributes under secret (This shows the attributes in secret, but not the values)
+    ```
+    kubectl describe secrets
+    ```
+  
+- #### To view values as well under secret named as app-secret
+    ```
+    kubectl get secret app-secret -o yaml
+    ```
+
+  #### Note on Secrets;
+  - Secrets are not Encrypted. Only encoded.
+  - Secrets are not encrypted in etcd.
+    Enable encryption at rest (means normally etcd does not store secrets in an encrypted format, it stores them as plain text, and anyone who can connect to etcd with etcd client can see the credential data, so we need to encrypt them at rest).
+  - Anyone able to create pods/deployments in the same namespace can access the secrets.
+    Configure least-privilege access to Secrets RBAC.
+  - Consider third-party secrets store providers like AWS Provider, Azure Provider, GCP Provider, Vault Provider.
+
+
+
+### 7) SERVICE ACCOUNT
+
+- #### To create a ServiceAccount with a name dashboard-sa
+    ```
+    kubectl create serviceaccount dashboard-sa
+    ```
+
+- #### To view all ServiceAccount
+    ```
+    kubectl get serviceaccount
+    ```
+
+- #### To see details of a ServiceAccount named as dashboard-sa
+    ```
+    kubectl describe serviceaccount dashboard-sa
+    ```
+
+- #### To create a Token for this ServiceAccount named as dashboard-sa
+    ```
+    kubectl create token dashboard-sa
+    ```
+  
+- #### To see the ServiceAccount credentials (token) available within the pod named as my-kubernetes-dashboard
+    ```
+    kubectl exec -it my-kubernetes-dashboard cat /var/run/secrets/kubernetes.io/serviceaccount/token
+    ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
