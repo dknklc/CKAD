@@ -1,5 +1,39 @@
 # Certified Kubernetes Application Developer (CKAD)
 
+## Kubernetes (Container Orchestration)
+
+Kubernetes is an open-source container orchestration platform that automates the deployment, scaling, and management of containerized applications. It was originally developed by Google, and is now maintained by the Cloud Native Computing Foundation (CNCF).
+
+Some purpose of Kubernetes are the following:
+- Automating the Deployments, Rollouts & Rollbacks 
+- Making sure our services are self-healing
+- Autoscaling our services
+
+1) ``Automating the Deployments, Rollouts & Rollbacks :`` Inside microservices, we should try to automate as much as possible because inside microservices, we are going to deal hundreds of applications. We should try to automate each and every task like doing deployments, rollouts and rollbacks.
+Rollout: Whenever you try to make some changes or whenever you try to build a new version of your microservices, you need to push them or deploy them into the production server. When you try to do that deployment, bigger organizations cannot afford a downtime. So, in such scenarios, they will go with an option of rollout. So, as part of this rollout, they are going to replace the containers one by one with the latest Docker image. Think like for account microservice, you have three Docker containers running inside your production. With the help of this rollout, we can first try to create a new container with the latest Docker image. Once the container is available, then only we can terminate the previous running containers. So this will avoid any downtime that organizations may face while doing the deployment.
+Rollback: And in the similar lines, think like when you rollout a new feature or a new Docker image into your containers, you face some issue. There is a bug identified in the production server. In such scenarios, you should also have a flexibility of automatic rollback to the previous running  version of the Docker image.
+
+
+2) ``Making sure our services are self-healing :`` How do we automatically restart containers that fail, replace containers, kill containers that do not respond to your user-defined health check, and does not advertise them to clients until they are ready to server.
+
+
+3) ``Autoscaling our services :`` How do we monitor our services and scale them automatically based on metrics like CPU Utilization. For example, let's take an example of Netflix. Usually, there will be a lot of traffic to the Netflix on the Friday night, on the Saturday and Sunday. So during these days, the Netflix should automatically scale their number of microservice instances or applications so that they can stream the content to their customers without any issues.
+
+
+
+### The story of why we choose Kubernetes
+
+As of now, you are aware that we can build lot many microservices, and in the same journey,
+first we are building spring boot applications, and we are trying to package it as a Docker image, 
+and post that with the help of Docker server, we are converting these images into running containers so that 
+we can access all our microservice applications. We cah have 7-8 microservices in our local development,
+but in the real world, we can have more than 100 microservices. 
+That means you may have more than 100 different containers running inside your production server. 
+So, whenever you have such kind of larger number of containers inside your organizations, 
+we need a component that is going to take care of container orchestration.
+
+----------------------------------------------------------------------------------------
+
 ## KUBERNETES ARCHITECTURE
 
 The purpose of Kubernetes is to host your applications in the form of containers in an automated fashion so that you can easily deploy as many instances of your application.
@@ -61,6 +95,189 @@ The kubelet was more of a captain on the ship that manages containers on the shi
 
 
 Within a Kubernetes cluster, every pod can reach every every other pod. This is accomplished by deploying a pod networking solution to the cluster. A POD Network is an internal virtual network that spans across all the nodes in the cluster to which all the pods connect to. Through this network, they're able to communicate with each other. There are many solutions available for deploying such a network. In this case, I have a web application deployed on the first node, and a database application deployed on the second node. The web app can reach the database simply by using the IP of the pod , but there is no guarantee that the IP of the database pod will always remain the same. If you have gone through the lecture on services, you must know that a better way for the web application to access the database is using a service, so we create a service to expose the database application across the cluster. The web application can now access the database using the same name of the service, db. The service also gets an IP address assigned to it. Whenever a pod tries to reach the service using its IP or name, it forwards the traffic to the backend pod in this case the database. But, what is this service, and how does it get an IP? Does the service join the same POD network? The service cannot join the POD network because the service is not an actual thing. It is not a container like pods, so it doesn't have any interfaces. It is a virtual component that only lives in the Kubernetes memory. But then, we also said that the service should be accessible accross the cluster from any nodes. So, how is that achieved? That's where kube-proxy comes in. Kube-proxy is a process that runs on each node in the Kubernetes cluster. Its job is to look for new services.
+
+-------------------------------------------------------------------------------------------------
+
+## Kubernetes Objects
+
+Kubernetes uses YAML files as input for the creation of objects such as PODs,
+Replicas, Deployments, Services etc. All of these follow similar structure.
+
+A kubernetes definition file always contains 4 top level fields. The
+apiVersion, kind, metadata and spec. These are top level or root level properties. Think of them as
+siblings, children of the same parent. These are all REQUIRED fields, so you MUST
+have them in your configuration file.
+
+### 1) POD
+
+With Kubernetes, our ultimate aim is to deploy our
+application in the form of containers on a set of machines that are configured as
+worker nodes in a cluster. However, kubernetes does not deploy containers directly
+on the worker nodes. The containers are encapsulated into a Kubernetes object
+known as PODs. A POD is a single instance of an application. A POD is the smallest
+object, that you can create in kubernetes.
+
+![](./images/pods.png)
+
+Here we see the simplest of simplest cases were you have a single node kubernetes
+cluster with a single instance of your application running in a single docker container
+encapsulated in a POD. What if the number of users accessing your application
+increase and you need to scale your application? You need to add additional
+instances of your web application to share the load. Now, were would you spin up
+additional instances? Do we bring up a new container instance within the same
+POD? No! We create a new POD altogether with a new instance of the same
+application. As you can see we now have two instances of our web application
+running on two separate PODs on the same kubernetes system or node.
+
+
+What if the user base further increases and your current node has no sufficient
+capacity? Well then you can always deploy additional PODs on a new node in the
+cluster. You will have a new node added to the cluster to expand the cluster’s physical
+capacity. So, what I am trying to illustrate in this picture is that, Pods usually
+have a one-to-one relationship with containers running your application. To scale UP
+you create new PODs and to scale down you delete pods. You do not add additional
+containers to an existing pod to scale your application.
+
+![](./images/multi-container-pods.png)
+
+Now we just said that PODs usually have a one-to-one relationship with the
+containers, but, are we restricted to having a single container in a single POD? No! A
+single pod can have multiple containers, except for the fact that they are usually not
+multiple containers of the same kind. As we discussed in the picture slide, if our
+intention was to scale our application, then we would need to create additional
+pods. But sometimes you might have a scenario were you have a helper container,
+that might be doing some kind of supporting task for our web application such as
+processing a user entered data, processing a file uploaded by the user etc. and you
+want these helper containers to live along side your application container. In that
+case, you can have both of these containers part of the same pod, so that when a
+new application container is created, the helper is also created and when it dies the
+helper also dies since they are part of the same pod. The two containers can also
+communicate with each other directly by referring to each other as ‘localhost’ since
+they share the same network namespace. Plus they can easily share the same storage
+space as well.
+
+![](./images/pod-definition.png)
+
+
+```
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: myapp-pod
+    labels:
+      app: myapp
+      type: front-end
+  spec:
+    containers:
+      - name: nginx-container
+        image: nginx
+```
+
+
+We haven’t really talked about the concepts on how a user can
+access the nginx web server. And so in the current state we haven’t made the web
+server accessible to external users. You can access it internally from the Node though.
+For now we will just see how to deploy a POD and in a later once we learn
+about networking and services we will get to know how to make this service accessible to end users.
+
+
+### 2) REPLICA SET
+
+What is a replica, and why do we need a replication controller? Let's go back to our first scenario where we had a single pod running our application. What if for some reason, our application crashes and the pod fails? Users will no longer be able to acccess our application. To prevent users from losing access to our application, we would like to have more than one instance or pod running at the same time. That way if one fails, we still have our application running on the other one. The replication controller helps us run multiple instances of a single pod in the Kubernetes cluster, thus providing high availability. So does that mean you can't use a replication controller if you plan to have a single pod? No. Even if you have a single pod, the replication controller can help by automatically bringing up a new pod when the existing one fails. Thus, the replication controller ensures that the specified number of pods are running at all times even if it's just one or hundred.
+
+It is important to note that there are two similar terms, replication controller and replica set. Both have the same purpose, but they're not the same. Replication controller is the older technology that is being replaced by Replica set. Replica set is the new recommended way to set up replication. However, whatever we discussed in the previous few slides remain applicable to both these technologies. There are minor differences in the way each works, and we will look at that in a bit. As such, we will try to stick to replica set in all of our demos and implementations going forward.
+
+
+![](./images/replica-set.png)
+
+The selector section helps the Replica Set identify what pods fall under it. But, why would you have to specify what pods fall under it if you have provided the contents of the pod definition file itself in the template? It is because Replica Set can also manage pods that were not created as part of the Replica Set creation. Say for example, there are pods created before the creation of the Replica Set that match labels specified in the selector, the Replica Set will also take those pods into consideration when creating the replicas.
+
+How does the Replica Set know what pods to monitor? There could be hundreds of other pods in the cluster running different applications. This is where labeling our pods during creation comes in handy. We could now provide these labels as a filter for Replica Set.
+
+
+![](./images/replica-set-definition.png)
+
+
+```
+  apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    name: myapp-replicaset
+    labels:
+      app: myapp
+      type: front-end
+  spec:
+    template:
+      metadata:
+        name: myapp-pod
+        labels:
+          app: myapp
+          trype: front-end
+      spec:
+        containers:
+          - name: nginx-container
+            image: nginx
+    replicas: 3
+    selector:
+      matchLabels:
+        type: front-end
+
+
+```
+
+### 3) DEPLOYMENT
+
+For a minute, let us forget about pods, and replica sets, and other Kubernetes concepts, and talk about
+how you might want to deploy your application in a production environment.
+
+Say for example you have a web server that needs to be deployed in a production environment. You need not one, but many such instances
+of the web server running for obvious reasons. Secondly, whenever newer versions
+of application builds become available on the Docker registry, you would like to upgrade your Docker instances seamlessly. However, when you upgrade your instances, you do not want to upgrade all of them
+at once as we just did, this may impact users accessing our applications so you might want to upgrade them one after the other. That kind of upgrade is known as rolling updates.
+Suppose one of the upgrades you performed resulted in an unexpected error and you're asked to undo the recent change, you would like to be able to roll back the changes
+that were recently carried out.
+Finally, say for example, you would like to make multiple changes to your environment such as upgrading the underlying web server versions
+as well as scaling your environment, and also modifying the resource allocations, et cetera, you do not want to apply each change immediately after the command is run. Instead, you would like to apply a pause to your environment, make the changes, and then resume so that all the changes are rolled out together. All of these capabilities are available with the Kubernetes deployments.
+
+So far in this course, we discussed about pods, which deploy single instances of our application such as the web application in this case.
+Each container is encapsulated in pods. Multiple such pods are deployed using replication controllers or replica sets.
+And then comes deployment, which is a Kubernetes object
+that comes higher in the hierarchy. The deployment provides us with the capability
+to upgrade the underlying instances seamlessly using rolling updates, undue changes,
+and pause and resume changes as required.
+
+![](./images/deployment.png)
+
+``So how do we create a deployment?``
+
+As with the previous components, we first create a deployment definition file.
+The contents of the deployment definition file are exactly similar to the replica set definition file except for the kind which is now going to be deployment
+
+![](./images/deployment-definition.png)
+
+
+### 4) NAMESPACE
+
+
+
+
+
+
+
+
+### 5) CONFIGMAP
+
+### 6) SECRET
+
+### 7) SERVICE
+
+
+ #### Service Types
+  - ClusterIP
+  - NodePort
+  - LoadBalancer
+
+
 
 
 
