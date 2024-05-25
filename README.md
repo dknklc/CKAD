@@ -512,6 +512,326 @@ The contents of the deployment definition file are exactly similar to the replic
     ```
     kubectl exec -it my-kubernetes-dashboard cat /var/run/secrets/kubernetes.io/serviceaccount/token
     ```
+### 8) ROLLING UPDATES & ROLLBACK
+
+- #### To create a deployment with a deployment-definition.yaml file
+    ```
+    kubectl create -f deployment-definition.yaml
+    ```
+- #### To get all deployments
+    ```
+    kubectl get deployments
+    ```
+- #### To update a with deployment-definition.yaml file
+    ```
+    kubectl apply -f deployment-definition.yaml
+    ```
+- #### To update a deployment's image without changing manifest file
+    ```
+    kubectl set image deployment/myapp-deployment nginx=nginx:1.9.1
+    ```
+- #### To see the status of current deployment
+    ```
+    kubectl rollout status deployment/myapp-deployment
+    ```  
+- #### To see the history of the deployment named as deployment/myapp-deployment
+    ```
+    kubectl rollout history deployment/myapp-deployment
+    ```  
+- #### To rollback the deployment
+    ```
+    kubectl rollback undo deployment/myapp-deployment
+    ```  
+
+
+
+
+
+------------------------------------------------------------------------------------------------
+
+
+
+## OBSERVABILITY
+
+### 1) READINESS PROBE
+
+![](./images/pod-status.png)
+
+The POD status tells us were the POD is in its lifecycle. When a POD is first created, it
+is in a Pending state. This is when the Scheduler tries to figure out were to place the
+POD. If the scheduler cannot find a node to place the POD, it remains in a Pending
+state. To find out why it’s stuck in a pending state, run the kubectl describe pod
+command, and it will tell you exactly why.
+
+Once the POD is scheduled, it goes into a ContainerCreating status, were the images
+required for the application are pulled and the container starts. Once all the
+containers in a POD starts, it goes into a running state, were it continues to be until
+the program completes successfully or is terminated.
+
+You can see the pod status in the output of the kubectl get pods command. So
+remember, at any point in time the POD status can only be one of these values and
+only gives us a high level summary of a POD. However, at times you may want
+additional information.
+
+Conditions compliment POD status. It is an array of true or false values that tell us the
+state of a POD. When a POD is scheduled on a Node, the PodScheduled condition is
+set to True. When the POD is initialized, it’s value is set to True. We know that a POD
+has multiple containers. When all the containers in the POD are ready, the Containers
+Ready condition is set to True and finally the POD itself is considered to be Ready.
+
+To see the state of POD conditions run the kubectl describe POD command and look
+for the conditions section.
+
+You can also see the Ready state of the POD, in the output of the kubectl get pods
+command, and that is the condition we are interested in
+
+
+![](./images/ready-condition.png)
+
+The ready conditions indicate that the application inside the POD is running and is
+ready to accept user traffic. What does that really mean? The containers could be
+running different kinds of applications in them. It could be a simple script that
+performs a job. It could be a database service. Or a large web server, serving front
+end users. The script may take a few milliseconds to get ready. The database service
+may take a few seconds to power up. Some web servers could take several minutes to
+warm up. If you try to run an instance of a Jenkins server, you will notice that it takes
+about 10 15 seconds for the server to initialize before a user can access the web UI.
+Even after the Web UI is initialized, it takes a few seconds for the server to warm up
+and be ready to serve users. During this wait period if you look at the state of the
+POD, it continues to indicate that the POD is ready, which is not very true.
+
+So why is that happening and how does kubernetes know weather that the
+application inside the container is actually running or not? But before we get into
+
+![](./images/readiness-probe-in-poddefinition.png)
+
+
+So how do you configure that test? In the pod definition file, add a new field called
+readinessProbe and use the httpGet option. Specify the port and the ready api. Now
+when the container is created, kubernetes does not immediately set the ready
+condition on the container to true, instead, it performs a test to see if the api
+responds positively. Until then the service does not forward any traffic to the pod, as
+it sees that the POD is not ready.
+
+There are some additional options as well. If you know that your
+application will always take a minimum of, say, 10 seconds to warm up, you can add
+an initial delay to the probe. If you’d like to specify how often to probe, you can do
+that using the periodSeconds option. By default, if the application is not ready after 3
+attempts, the probe will stop. If you’d like to make more attempts, use the
+failureThreshold option.
+
+### 2) LIVENESS PROBE
+
+
+Let’s start from the basics. You run an image of NGINX using docker and it starts to
+serve users. For some reason the web server crashes and the nginx process exits. The
+container exits as well. And you can see the status of the container when you run the
+docker ps command. Since docker is not an orchestration engine, the container
+continues to stay dead and deny services to users, until you manually create a new
+container.
+
+Enter Kubernetes Orchestration. You run the same web application with kubernetes.
+Every time the application crashes, kubernetes makes an attempt to restart the
+container to restore service to users. You can see the count of restarts increase in the
+output of kubectl get pods command. Now this works just fine.
+
+
+
+However, what if the application is not really working but the container continues to
+stay alive? Say for example, due to a bug in the code, the application is stuck in an
+infinite loop. As far as kubernetes is concerned, the container is up, so the application
+is assumed to be up. But the users hitting the container are not served. In that case,
+the container needs to be restarted, or destroyed and a new container is to be
+brought up. That is where the liveness probe can help us. A liveness probe can be
+configured on the container to periodically test whether the application within the
+container is actually healthy. If the test fails, the container is considered unhealthy
+and is destroyed and recreated.
+
+![](./images/liveness-probe.png)
+
+
+However, what if the application is not really working but the container continues to
+stay alive? Say for example, due to a bug in the code, the application is stuck in an
+infinite loop. As far as kubernetes is concerned, the container is up, so the application
+is assumed to be up. But the users hitting the container are not served. In that case,
+the container needs to be restarted, or destroyed and a new container is to be
+brought up. That is where the liveness probe can help us. A liveness probe can be
+configured on the container to periodically test whether the application within the
+container is actually healthy. If the test fails, the container is considered unhealthy
+and is destroyed and recreated.
+
+![](./images/liveness-probe-in-poddefinition.png)
+
+The liveness probe is configured in the pod definition file as you did with the
+readinessProbe . Except here you use liveness instead of readiness.
+
+As well as additional options like initialDelay before the test is
+run, periodSeconds to define the frequency and success and failure thresholds.
+
+
+### 3) CONTAINER LOGGING
+
+Once it’s the pod is running, we can view the logs using the kubectl
+logs command with the pod name. Use the –f option to stream the logs live.
+
+```
+kubectl logs -f <pod-name>
+```
+Use the –f option to stream the logs live.
+
+
+![](./images/logging.png)
+
+
+Now, these logs are specific to the container running inside the POD. As we learned
+before, Kubernetes PODs can have multiple docker containers in them. In this case I
+modify my pod definition file to include an additional container called imageprocessor.
+If you ran the kubectl logs command now with the pod name, which
+container’s log would it show? If there are multiple containers within a pod, you must
+specify the name of the container explicitly in the command, otherwise it would fail
+asking you to specify a name. In this case I will specify the name of the first
+container event-simulator and that prints the relevant log messages.
+
+## POD DESGIN
+
+### 1) Labels and Selectors
+
+``Labels`` are properties attached to each item. So you add properties to each item for  their class, kind and color.
+
+
+``Selectors`` help you filter these items. For example, when you say class equals mammal, we get a list of mammals. And when you say color equals green, we get the  green mammals.
+
+
+So how are labels and selectors used in Kubernetes? We have created a lot of
+different types of Objects in Kuberentes . Pods, Services, ReplicaSets and
+Deployments. For Kubernetes, all of these are different objects. Over time you may
+end up having 100s and 1000s of these objects in your cluster. Then you will need a
+way to filter and view different objects by different categories. Like
+
+Once the pod is created, to select the pod with the labels use the kubectl get pods
+command along with the selector option, and specify the condition like app=App1.
+
+```
+kubectl get pods --selector app=App1
+```
+
+![](./images/labels-selector-in-replicaset.png)
+
+
+Kubernetes objects use labels and selectors internally to connect different objects together. For example to create a
+replicaset consisting of 3 different pods, we first label the pod definition and use
+selector in a replicaset to group the pods . In the replica set definition file, you will
+see labels defined in two places. Note that this is an area where beginners tend to
+make a mistake. The labels defined under the template section are the labels
+configured on the pods. The labels you see at the top are the labels of the replica set.
+We are not really concerned about that for now, because we are trying to get the
+replicaset to discover the pods. The labels on the replicaset will be used if you were
+configuring some other object to discover the replicaset . In order to connect the
+replica set to the pods, we configure the selector field under the replicaset
+specification to match the labels defined on the pod. A single label will do if it
+matches correctly. However if you feel there could be other pods with that same label
+
+On creation, if the labels match, the
+replicaset is created successfully.
+
+It works the same for other objects like a service. When a service is created, it uses
+the selector defined in the service definition file to match the labels set on the pods
+in the replicaset definition file.
+
+### 2) Rolling Updates & Rollbacks in Deployments
+
+
+Before we look at how we upgrade our application, let’s try to understand Rollouts
+and Versioning in a deployment. Whenever you create a new deployment or upgrade
+the images in an existing deployment it triggers a Rollout. A rollout is the process of
+gradually deploying or upgrading your application containers. When you first create a
+deployment, it triggers a rollout. A new rollout creates a new Deployment revision.
+Let’s call it Revision 1. In the future when the application is upgraded – meaning
+when the container version is updated to a new one – a new rollout is triggered and a
+new deployment revision is created named Revision 2. This helps us keep track of the
+changes made to our deployment and enables us to rollback to a previous version of
+deployment if necessary.
+
+
+![](./images/rollingupdates.png)
+
+There are two types of deployment strategies :
+- Say for example you have 5 replicas of
+your web application instance deployed. One way to upgrade these to a newer
+version is to destroy all of these and then create newer versions of application
+instances. Meaning first, destroy the 5 running instances and then deploy 5 new
+instances of the new application version. The problem with this as you can imagine,
+is that during the period after the older versions are down and before any newer
+version is up, the application is down and inaccessible to users. This strategy is
+known as the Recreate strategy, and thankfully this is NOT the default deployment
+strategy.
+
+
+- The second strategy is were we do not destroy all of them at once. Instead we take
+down the older version and bring up a newer version one by one. This way the
+application never goes down and the upgrade is seamless.
+Remember, if you do not specify a strategy while creating the deployment, it will
+assume it to be Rolling Update. In other words, RollingUpdate is the default Deployment Strategy.
+
+  
+
+![](./images/rollingupdates2.png)
+
+
+So we talked about upgrades. How exactly DO you update your deployment? When I
+say update it could be different things such as updating your application version by
+updating the version of docker containers used, updating their labels or updating the
+number of replicas etc. Since we already have a deployment definition file it is easy
+for us to modify this file. Once we make the necessary changes, we run the kubectl
+apply command to apply the changes. A new rollout is triggered and a new revision of
+the deployment is created.
+But there is ANOTHER way to do the same thing. You could use the
+kubectl set image
+command to update the image of your application. But remember, doing it this way
+will result in the deployment definition file having a different configuration. So you
+must be careful when using the same definition file to make changes in the future.
+
+
+#### To summarize commands related to rollout & rollback deployments :
+
+![](./images/rolloutandrollbackcommands.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
